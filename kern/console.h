@@ -17,10 +17,25 @@
 #define CRT_COLS	80
 #define CRT_SIZE	(CRT_ROWS * CRT_COLS)
 
+#define COLOR_BLACK 	0
+#define COLOR_BLUE 		1
+#define COLOR_GREEN 	2
+#define COLOR_CYAN		3
+#define COLOR_RED		4
+#define COLOR_MAGENTA	5
+#define COLOR_YELLOW	6
+#define COLOR_WHITE		7
+#define COLOR_BRIGHT	8
+#define DEFAULT_COLOR_ATTRIBUTE 0x0700
+
 void cons_init(void);
 int cons_getc(void);
 
 void kbd_intr(void); // irq 1
 void serial_intr(void); // irq 4
 
+void set_foreground_color(uint16_t c);
+
+void set_background_color(uint16_t c);
+void set_default_color(void);
 #endif /* _CONSOLE_H_ */

@@ -124,11 +124,25 @@ void
 monitor(struct Trapframe *tf)
 {
 	char *buf;
-
 	cprintf("Welcome to the JOS kernel monitor!\n");
 	cprintf("Type 'help' for a list of commands.\n");
-	
-
+	set_foreground_color(COLOR_BLACK);
+	set_background_color(COLOR_WHITE | COLOR_BRIGHT);
+	cprintf("Color Test\n");
+	set_foreground_color(COLOR_BLUE);
+	cprintf("Blue ");
+	set_foreground_color(COLOR_GREEN);
+	cprintf("Green ");
+	set_foreground_color(COLOR_RED);
+	cprintf("Red ");
+	set_background_color(COLOR_BLACK);
+	set_foreground_color(COLOR_CYAN | COLOR_BRIGHT);
+	cprintf("Bright Cyan ");
+	set_foreground_color(COLOR_MAGENTA | COLOR_BRIGHT);
+	cprintf("Bright Magenta ");
+	set_foreground_color(COLOR_YELLOW | COLOR_BRIGHT);
+	cprintf("Bright Yellow\n");
+	set_default_color();
 	while (1) {
 		buf = readline("K> ");
 		if (buf != NULL)

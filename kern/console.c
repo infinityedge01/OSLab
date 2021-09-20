@@ -157,11 +157,12 @@ cga_init(void)
 	crt_pos = pos;
 }
 
-
+static uint16_t color_attribute = DEFAULT_COLOR_ATTRIBUTE;
 
 static void
 cga_putc(int c)
 {
+	c = c | color_attribute;
 	// if no attribute given, then use black on white
 	if (!(c & ~0xFF))
 		c |= 0x0700;
@@ -473,4 +474,22 @@ iscons(int fdnum)
 {
 	// used by readline
 	return 1;
+}
+
+void
+set_foreground_color(uint16_t c)
+{
+	color_attribute = (color_attribute & 0xf000) | (c << 8);
+}
+
+void
+set_background_color(uint16_t c)
+{
+	color_attribute = (color_attribute & 0x0f00) | (c << 12);
+}
+
+void
+set_default_color(void)
+{
+	color_attribute = DEFAULT_COLOR_ATTRIBUTE;
 }
