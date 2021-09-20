@@ -58,9 +58,16 @@ int
 mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 {
 	// Your code here.
+	int* ebp;
+	cprintf("Stack backtrace:\n");
+	ebp = (int *)read_ebp();
+	while((unsigned)ebp != 0){
+		cprintf("ebp %08x eip %08x args %08x %08x %08x %08x %08x\n", ebp, ebp[1], ebp[2], ebp[3], ebp[4], ebp[5], ebp[6]);
+		ebp = (int*)*ebp;
+		
+	}
 	return 0;
 }
-
 
 
 /***** Kernel monitor command interpreter *****/
@@ -114,7 +121,7 @@ monitor(struct Trapframe *tf)
 
 	cprintf("Welcome to the JOS kernel monitor!\n");
 	cprintf("Type 'help' for a list of commands.\n");
-
+	
 
 	while (1) {
 		buf = readline("K> ");
