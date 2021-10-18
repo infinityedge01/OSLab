@@ -84,4 +84,9 @@ page2kva(struct PageInfo *pp)
 
 pte_t *pgdir_walk(pde_t *pgdir, const void *va, int create);
 
+void	pmap_showmappings(uintptr_t st, uintptr_t ed);
+void	pmap_chperm(uintptr_t va, uintptr_t perm);
+void	pmap_dumpvmem(uintptr_t st, uintptr_t ed);
+void	pmap_dumppmem(uintptr_t st, uintptr_t ed);
+
 #endif /* !JOS_KERN_PMAP_H */

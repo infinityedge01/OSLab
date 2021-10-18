@@ -10,6 +10,7 @@
 #include <kern/console.h>
 #include <kern/monitor.h>
 #include <kern/kdebug.h>
+#include <kern/pmap.h>
 
 #define CMDBUF_SIZE	80	// enough for one VGA text line
 
@@ -25,6 +26,10 @@ static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
 	{ "backtrace", "Display information about the backtrace", mon_backtrace },
+	{ "showmappings", "Display information about the memory mappings", mon_showmappings },
+	{ "chperm", "Change the permission of a virtual memory page", mon_chperm },
+	{ "dumpvmem", "Dump the virtual memory", mon_dumpvmem },
+	{ "dumppmem", "Dump the physical memory", mon_dumppmem },
 };
 
 /***** Implementations of basic kernel monitor commands *****/
@@ -75,6 +80,124 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 	return 0;
 }
 
+
+void mon_showmappings_help(){
+	cprintf("Usage: showmappings st ed\n");
+	cprintf("st, ed are virtual address in hex, starts with 0x\n");
+}
+
+int parse_hex_values(char* ch, uintptr_t* val){
+	size_t len = strlen(ch), i;
+	*val = 0;
+	if(len > 10 || len <= 2 || ch[0] != '0' || ch[1] != 'x'){
+		return -1;
+	}
+	for(i = 2; i < 10 && i < len; i ++) {
+		*val = *val * 16 + ch[i];
+		if(ch[i] >= 'a' && ch[i] <= 'f') *val -= 'a' - 10;
+		else if(ch[i] >= 'A' && ch[i] <= 'F') *val -= 'A' - 10;
+		else if(ch[i] >= '0' && ch[i] <= '9') *val -= '0'; 
+		else{
+			return -1;
+		}
+	}
+	return 0;
+}
+
+int
+mon_showmappings(int argc, char **argv, struct Trapframe *tf)
+{
+	uintptr_t st, ed;
+	size_t i, j;
+	if (argc != 3) {
+		mon_showmappings_help();
+		return 0;
+	}
+	if (parse_hex_values(argv[1], &st) == -1 || parse_hex_values(argv[2], &ed) == -1){
+		mon_showmappings_help();
+		return 0;
+	}
+	if(st > ed){
+		mon_showmappings_help();
+		return 0;
+	}
+	pmap_showmappings(st, ed);
+	return 0;
+}
+
+void mon_chperm_help(){
+	cprintf("Usage: showmappings vaddr perm\n");
+	cprintf("vaddr, perm are in hex, starts with 0x\n");
+}
+int
+mon_chperm(int argc, char **argv, struct Trapframe *tf)
+{
+	uintptr_t va, perm;
+	size_t i, j;
+	if (argc != 3) {
+		mon_chperm_help();
+		return 0;
+	}
+	if (parse_hex_values(argv[1], &va) == -1 || parse_hex_values(argv[2], &perm) == -1){
+		mon_chperm_help();
+		return 0;
+	}
+	pmap_chperm(va, perm);
+	return 0;
+}
+
+void mon_dumpvmem_help(){
+	cprintf("Usage: dumpvmem st ed\n");
+	cprintf("st, ed are virtual address in hex, starts with 0x\n");
+}
+
+int
+mon_dumpvmem(int argc, char **argv, struct Trapframe *tf)
+{
+	uintptr_t st, ed;
+	size_t i, j;
+	if (argc != 3) {
+		mon_dumpvmem_help();
+		return 0;
+	}
+	if (parse_hex_values(argv[1], &st) == -1 || parse_hex_values(argv[2], &ed) == -1){
+		mon_dumpvmem_help();
+		return 0;
+	}
+	if(st > ed){
+		mon_dumpvmem_help();
+		return 0;
+	}
+	pmap_dumpvmem(st, ed);
+	return 0;
+}
+
+
+void mon_dumppmem_help(){
+	cprintf("Usage: dumppmem st ed\n");
+	cprintf("st, ed are physical address in hex, starts with 0x\n");
+}
+
+int
+mon_dumppmem(int argc, char **argv, struct Trapframe *tf)
+{
+	uintptr_t st, ed;
+	size_t i, j;
+	if (argc != 3) {
+		mon_dumppmem_help();
+		return 0;
+	}
+	if (parse_hex_values(argv[1], &st) == -1 || parse_hex_values(argv[2], &ed) == -1){
+		mon_dumppmem_help();
+		return 0;
+	}
+	if(st > ed){
+		mon_dumppmem_help();
+		return 0;
+	}
+	pmap_dumppmem(st, ed);
+	return 0;
+}
 
 /***** Kernel monitor command interpreter *****/
 
@@ -128,7 +251,8 @@ monitor(struct Trapframe *tf)
 	cprintf("Type 'help' for a list of commands.\n");
 	set_foreground_color(COLOR_BLACK);
 	set_background_color(COLOR_WHITE | COLOR_BRIGHT);
-	cprintf("Color Test\n");
+	
+	cprintf("Good night. And see you tomorrow, Miss Diana.\n");
 	set_foreground_color(COLOR_BLUE);
 	cprintf("Blue ");
 	set_foreground_color(COLOR_GREEN);
@@ -142,6 +266,7 @@ monitor(struct Trapframe *tf)
 	cprintf("Bright Magenta ");
 	set_foreground_color(COLOR_YELLOW | COLOR_BRIGHT);
 	cprintf("Bright Yellow\n");
+
 	set_default_color();
 	while (1) {
 		buf = readline("K> ");

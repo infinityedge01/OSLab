@@ -918,3 +918,142 @@ check_page_installed_pgdir(void)
 
 	cprintf("check_page_installed_pgdir() succeeded!\n");
 }
+
+void
+pmap_showmappings(uintptr_t st, uintptr_t ed){
+	uintptr_t i, lasti;
+    pte_t *pte;
+    st = st & (~(PGSIZE - 1));
+	ed = ed & (~(PGSIZE - 1));
+
+    cprintf("Virtual Addr\tPhysical Addr\tPermission\n");
+	lasti = st;
+    for (i = st; i <= ed; i += PGSIZE) {
+		if(i < lasti) break;
+		lasti = i;
+        pte = pgdir_walk(kern_pgdir, (const void *)i, 0);
+        cprintf("0x%08x\t", i);
+        if (!pte || !*pte) {
+			cprintf("N/A\t\tN/A\n");
+			continue;
+		}
+        cprintf("0x%08x\t\t", PTE_ADDR(*pte));
+        if (*pte & PTE_G) cprintf("G"); else cprintf("_");
+        if (*pte & PTE_PS) cprintf("P"); else cprintf("_");
+        if (*pte & PTE_D) cprintf("D"); else cprintf("_");
+        if (*pte & PTE_A) cprintf("A"); else cprintf("_");
+        if (*pte & PTE_PCD) cprintf("C"); else cprintf("_");
+        if (*pte & PTE_PWT) cprintf("W"); else cprintf("_");
+        if (*pte & PTE_U) cprintf("U"); else cprintf("_");
+        if (*pte & PTE_W) cprintf("W"); else cprintf("_");
+        if (*pte & PTE_P) cprintf("P"); else cprintf("_");
+        cprintf("\n");  
+    }
+}
+
+void
+pmap_chperm(uintptr_t va, uintptr_t perm){
+	pte_t *pte = pgdir_walk(kern_pgdir, (const void *)va, 0);
+	if (!pte || !*pte) {
+		cprintf("Virtual Addr %08x is Not Mapped\n", va);
+		return;
+	}
+	*pte = (*pte & (~0x1FF)) | (perm & 0x1FF);
+}
+
+void
+pmap_dumpvmem(uintptr_t st, uintptr_t ed){
+    pte_t *pte;
+	int *i, *lasti;
+    st = ROUNDDOWN(st, 4);
+    ed = ROUNDDOWN(ed, 4);
+    cprintf("Virtual Addr\tPhysical Addr\tValue\n");
+    for (i = lasti = (int*)st; i <= (int*)ed; i ++) {
+		if(i < lasti) break;
+		lasti = i;
+        cprintf("0x%08x\t", i);
+        pte = pgdir_walk(kern_pgdir, (const void *)i, 0);
+        if (!pte || !(*pte & PTE_P)) {
+            cprintf("N/A\t\tN/A\n");
+        } else {
+            cprintf("0x%08x\t\t0x%08x\n", PTE_ADDR(*pte) + ((physaddr_t)i & 0xFFF), *i);
+        }
+    }
+}
+
+void
+printpage(physaddr_t p, physaddr_t st, physaddr_t ed){
+	
+	uintptr_t va = 0, cva, i;
+    pde_t *pde = kern_pgdir;
+	pde_t *pde_ed = (pde_t *)(((void *)kern_pgdir) + PGSIZE);
+	pte_t *pte, *pte_ed;
+	physaddr_t cp;
+	int flag = 0;
+	if (p< -KERNBASE){
+		va = p + KERNBASE;
+		pte = pgdir_walk(kern_pgdir, (const void *)va, 0);
+		flag = 1;
+	}
+	else if (p>= PADDR(bootstack) && p< PADDR(bootstack) + KSTKSIZE) {
+		va = p- PADDR(bootstack) + KSTACKTOP - KSTKSIZE;
+		pte = pgdir_walk(kern_pgdir, (const void *)va, 0);
+		flag = 1;
+	}
+	else if (p>= PADDR(pages) && p< PADDR(pages) + PTSIZE) {
+		va = p- PADDR(pages) + UPAGES;
+		pte = pgdir_walk(kern_pgdir, (const void *)va, 0);
+		flag = 1;
+	} else {
+		while(pde != pde_ed){
+			if(!*pde || !(*pde & PTE_P)){
+				pde ++;
+				va += (1 << PDXSHIFT);
+				continue;
+			}
+			pte = (pte_t *)KADDR(PTE_ADDR(*pde));
+			pte_ed = (pte_t *)(((void *)pte) + PGSIZE);
+			while(pte != pte_ed){
+				if(PTE_ADDR(*pte) == PTE_ADDR(p) && (*pte & PTE_P)){
+					flag = 1;
+					break;
+				}
+				pte ++;
+				va += (1 << PTXSHIFT);
+			}
+			if(flag == 1) break;
+			pde ++;
+		}
+	}
+	va = PTE_ADDR(va);
+	for(i = 0; i < PGSIZE; i += 4){
+		cp = p + i;
+		cva = va + i;
+		if(cp >= st && cp <= ed){
+			cprintf("0x%08x\t", cp);
+			if (flag == 0 || !(*pte & PTE_P)) {
+				cprintf("N/A\t\tN/A\n");
+			} else {
+				cprintf("0x%08x\t\t0x%08x\n", cva, *(int*)cva);
+			}
+		}
+	}
+}
+
+void
+pmap_dumppmem(uintptr_t st, uintptr_t ed){
+    uintptr_t stp, edp;
+    physaddr_t i, prei;
+
+    st = ROUNDDOWN(st, 4);
+    ed = ROUNDDOWN(ed, 4);
+	stp = ROUNDDOWN(st, PGSIZE);
+	edp = ROUNDDOWN(ed, PGSIZE);
+	
+	cprintf("Physical Addr\tVirtual Addr\tValue\n");
+    for (i = prei = stp; i <= edp; i += PGSIZE) {
+        if(i < prei) break;
+		prei = i;
+		printpage(i, st, ed);
+    }
+}
