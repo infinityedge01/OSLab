@@ -145,7 +145,6 @@ mem_init(void)
 	// Permissions: kernel R, user R
 	kern_pgdir[PDX(UVPT)] = PADDR(kern_pgdir) | PTE_U | PTE_P;
 
-	cprintf("%x", PADDR(kern_pgdir));
 	//////////////////////////////////////////////////////////////////////
 	// Allocate an array of npages 'struct PageInfo's and store it in 'pages'.
 	// The kernel uses this array to keep track of physical pages: for
@@ -200,6 +199,8 @@ mem_init(void)
 	// Permissions: kernel RW, user NONE
 	// Your code goes here:
 	boot_map_region(kern_pgdir, KERNBASE, (size_t)(-KERNBASE), 0, PTE_W);
+	//boot_map_region(kern_pgdir, KERNBASE, (size_t)(-KERNBASE), 0, PTE_PS | PTE_W);
+	
 	// Check that the initial page directory has been set up correctly.
 	check_kern_pgdir();
 
@@ -211,7 +212,6 @@ mem_init(void)
 	// If the machine reboots at this point, you've probably set up your
 	// kern_pgdir wrong.
 	lcr3(PADDR(kern_pgdir));
-
 	check_page_free_list(0);
 
 	// entry.S set the really important flags in cr0 (including enabling
@@ -391,11 +391,19 @@ static void
 boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm)
 {
 	// Fill this function in
-	size_t i;
+	size_t i, j;
+	pde_t *pde;
 	pte_t *pte;
-	for(i = 0; i < size; i += PGSIZE){
-		pte = pgdir_walk(pgdir, (void *)(va + i), 1);
-		*pte = PTE_ADDR(pa + i) | perm | PTE_P;
+	if (perm & PTE_PS) { // 4MB Page
+		for (i = 0; i < size; i += LPGSIZE) {
+			pde = pgdir + PDX(va + i);
+			*pde = LPTE_ADDR(pa + i) | perm | PTE_P;
+		}
+	}else{ // 4KB Page
+		for(i = 0; i < size; i += PGSIZE){
+			pte = pgdir_walk(pgdir, (void *)(va + i), 1);
+			*pte = PTE_ADDR(pa + i) | perm | PTE_P;
+		}
 	}
 }
 
@@ -707,6 +715,8 @@ check_va2pa(pde_t *pgdir, uintptr_t va)
 	pgdir = &pgdir[PDX(va)];
 	if (!(*pgdir & PTE_P))
 		return ~0;
+	if ((*pgdir & PTE_P) && (*pgdir & PTE_PS))
+		return LPTE_ADDR(*pgdir) | LPGOFF(va);
 	p = (pte_t*) KADDR(PTE_ADDR(*pgdir));
 	if (!(p[PTX(va)] & PTE_P))
 		return ~0;
