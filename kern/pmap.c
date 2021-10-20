@@ -122,7 +122,7 @@ boot_alloc(uint32_t n)
 void
 mem_init(void)
 {
-	uint32_t cr0;
+	uint32_t cr0, cr4;
 	size_t n;
 
 	// Find out how much memory the machine has (npages & npages_basemem).
@@ -199,6 +199,8 @@ mem_init(void)
 	// Permissions: kernel RW, user NONE
 	// Your code goes here:
 	boot_map_region(kern_pgdir, KERNBASE, (size_t)(-KERNBASE), 0, PTE_W);
+
+	//These code for mapping the memory by using large pages.
 	//boot_map_region(kern_pgdir, KERNBASE, (size_t)(-KERNBASE), 0, PTE_PS | PTE_W);
 	
 	// Check that the initial page directory has been set up correctly.
@@ -211,6 +213,12 @@ mem_init(void)
 	//
 	// If the machine reboots at this point, you've probably set up your
 	// kern_pgdir wrong.
+
+	// These code for enabling the 4MB large page mode.
+	//cr4 = rcr4();
+	//cr4 |= CR4_PSE;
+	//lcr4(cr4);
+	
 	lcr3(PADDR(kern_pgdir));
 	check_page_free_list(0);
 
