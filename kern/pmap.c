@@ -391,7 +391,7 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 		pginfo = page_alloc(ALLOC_ZERO);
 		if(pginfo == NULL) return NULL;
 		pginfo->pp_ref ++;
-		*pde = page2pa(pginfo) | PTE_P | PTE_W;
+		*pde = page2pa(pginfo) | PTE_P | PTE_W | PTE_U;
 		pte = page2kva(pginfo);
 		return &pte[ptx];
 	}
