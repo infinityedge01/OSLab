@@ -12,6 +12,7 @@
 #include <kern/kdebug.h>
 #include <kern/pmap.h>
 #include <kern/trap.h>
+#include <kern/env.h>
 
 #define CMDBUF_SIZE	80	// enough for one VGA text line
 
@@ -31,6 +32,8 @@ static struct Command commands[] = {
 	{ "chperm", "Change the permission of a virtual memory page", mon_chperm },
 	{ "dumpvmem", "Dump the virtual memory", mon_dumpvmem },
 	{ "dumppmem", "Dump the physical memory", mon_dumppmem },
+	{ "stepi", "Step one instruction exactly", mon_stepi},
+	{ "continue", "Continue program being debugged", mon_continue },
 };
 
 /***** Implementations of basic kernel monitor commands *****/
@@ -200,6 +203,38 @@ mon_dumppmem(int argc, char **argv, struct Trapframe *tf)
 	return 0;
 }
 
+int
+mon_stepi(int argc, char **argv, struct Trapframe *tf)
+{
+	if(tf == NULL){
+		cprintf("No environments!\n");
+		return 0;
+	}
+	if(tf->tf_trapno != T_BRKPT && tf->tf_trapno != T_DEBUG){
+		cprintf("This environment is not in debugging mode!\n");
+		return 0;
+	}
+	tf->tf_eflags |= 0x100; // set TF flag
+	env_run(curenv);
+	return 0;
+}
+
+
+int
+mon_continue(int argc, char **argv, struct Trapframe *tf)
+{
+	if(tf == NULL){
+		cprintf("No environments!\n");
+		return 0;
+	}
+	if(tf->tf_trapno != T_BRKPT && tf->tf_trapno != T_DEBUG){
+		cprintf("This environment is not in debugging mode!\n");
+		return 0;
+	}
+	tf->tf_eflags &= ~0x100; // unset TF flag
+	env_run(curenv);
+	return 0;
+}
 /***** Kernel monitor command interpreter *****/
 
 #define WHITESPACE "\t\r\n "

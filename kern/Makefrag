@@ -44,6 +44,7 @@ KERN_BINFILES :=	user/hello \
 			user/testbss \
 			user/divzero \
 			user/breakpoint \
+			user/mydebug \
 			user/softint \
 			user/badsegment \
 			user/faultread \
