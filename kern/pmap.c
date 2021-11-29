@@ -317,7 +317,7 @@ page_init(void)
 	size_t allocated = ((size_t)boot_alloc(0) - KERNBASE) / PGSIZE;
 	page_free_list = NULL;
 	for (i = 0; i < npages; i++) {
-		if(i == 0 || (i >= npages_basemem && i < allocated)){
+		if(i == 0 || (i >= npages_basemem && i < allocated) || i == PGNUM(MPENTRY_PADDR)){
 			pages[i].pp_ref = 1;
 			continue;
 		}
@@ -595,7 +595,16 @@ mmio_map_region(physaddr_t pa, size_t size)
 	// Hint: The staff solution uses boot_map_region.
 	//
 	// Your code here:
-	panic("mmio_map_region not implemented");
+
+	size_t pgmin = ROUNDDOWN(pa, PGSIZE);
+	size_t pgmax = ROUNDUP(pa + size, PGSIZE);
+	size_t map_size = pgmax - pgmin;
+	if(pgmax >= MMIOLIM){
+		panic("mmio_map_region map memory exceed the MMIOLIM");
+	}
+	boot_map_region(kern_pgdir, base, map_size, pgmin, PTE_PCD | PTE_PWT | PTE_W);
+	base += map_size;
+	return (void *) (base - size + pa - pgmin);
 }
 
 static uintptr_t user_mem_check_addr;
