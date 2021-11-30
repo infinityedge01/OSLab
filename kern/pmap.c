@@ -274,7 +274,9 @@ mem_init_mp(void)
 	//     Permissions: kernel RW, user NONE
 	//
 	// LAB 4: Your code here:
-
+	for(int i = 0; i < NCPU; i ++){
+		boot_map_region(kern_pgdir, KSTACKTOP - i * (KSTKSIZE + KSTKGAP) - KSTKSIZE, KSTKSIZE, PADDR(percpu_kstacks[i]), PTE_W);
+	}
 }
 
 // --------------------------------------------------------------
@@ -596,15 +598,15 @@ mmio_map_region(physaddr_t pa, size_t size)
 	//
 	// Your code here:
 
-	size_t pgmin = ROUNDDOWN(pa, PGSIZE);
-	size_t pgmax = ROUNDUP(pa + size, PGSIZE);
+	size_t pgmin = ROUNDDOWN(base, PGSIZE);
+	size_t pgmax = ROUNDUP(base + pa - ROUNDDOWN(pa, PGSIZE) + size, PGSIZE);
 	size_t map_size = pgmax - pgmin;
 	if(pgmax >= MMIOLIM){
 		panic("mmio_map_region map memory exceed the MMIOLIM");
 	}
-	boot_map_region(kern_pgdir, base, map_size, pgmin, PTE_PCD | PTE_PWT | PTE_W);
+	boot_map_region(kern_pgdir, base, map_size, ROUNDDOWN(pa, PGSIZE), PTE_PCD | PTE_PWT | PTE_W);
 	base += map_size;
-	return (void *) (base - size + pa - pgmin);
+	return (void *) (base - map_size + pa - ROUNDDOWN(pa, PGSIZE));
 }
 
 static uintptr_t user_mem_check_addr;
