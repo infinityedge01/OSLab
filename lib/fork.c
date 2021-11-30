@@ -121,19 +121,18 @@ fork(void)
 		panic("sys_exofork() error in fork(): %e\n", envid);
 	}
 	if(envid == 0){ 
-		thisenv = &envs[ENVX(sys_getenvid())];
+		//thisenv = &envs[ENVX(sys_getenvid())];
 		return 0;
 	}
 
-	for(int i = 0; i < NPDENTRIES; i ++){
-		if((i << PDXSHIFT) >= UTOP) break;
-		if(!(uvpd[i] & PTE_P)) continue;
-		for(int j = 0; j < NPTENTRIES; j ++) {
-			uint32_t pn = i * NPDENTRIES + j;
-			if(pn * PGSIZE >= UTOP) break;
-			if(pn == ((UXSTACKTOP - PGSIZE) >> PGSHIFT)) continue;
-			if(!(uvpt[pn] & PTE_P)) continue;
-			duppage(envid, pn);
+	for(pde_t pde = 0; pde < NPDENTRIES; pde ++){
+		if((pde << PDXSHIFT) >= UXSTACKTOP - PGSIZE) break;
+		if(!(uvpd[pde] & PTE_P)) continue;
+		for(pte_t pte = 0; pte < NPTENTRIES; pte ++) {
+			uint32_t p = pde * NPDENTRIES + pte;
+			if(p * PGSIZE >= UXSTACKTOP - PGSIZE) break;
+			if(!(uvpt[p] & PTE_P)) continue;
+			duppage(envid, p);
 		}
 	}
 	
@@ -156,9 +155,90 @@ fork(void)
 }
 
 // Challenge!
+
+static int 
+sduppage(envid_t envid, unsigned pn)
+{
+	int r;
+
+	// LAB 4: Your code here.
+	void *addr = (void *)(pn * PGSIZE);
+	pte_t pte = uvpt[pn];
+	if(pte & PTE_W){
+		r = sys_page_map(0, addr, envid, addr, PTE_W | PTE_P | PTE_U);
+		if (r < 0){
+			panic("W sys_page_map(%d) error in sduppage() : %e\n", envid, r);
+		}
+	}else{
+		r = sys_page_map(0, addr, envid, addr, PTE_P | PTE_U);
+		if (r < 0){
+			panic("sys_page_map(%d) error in sduppage() : %e\n", envid, r);
+		}
+	}
+
+	//panic("duppage not implemented");
+	return 0;
+}
+
 int
 sfork(void)
 {
-	panic("sfork not implemented");
-	return -E_INVAL;
+	// LAB 4: Your code here.
+	int r;
+	set_pgfault_handler(pgfault);
+	envid_t envid = sys_exofork();
+	if(envid < 0){
+		panic("sys_exofork() error in fork(): %e\n", envid);
+	}
+	if(envid == 0){ 
+		//thisenv = &envs[ENVX(sys_getenvid())];
+		return 0;
+	}
+
+	int is_stack = 1, flag = 0;
+	for(pde_t pde = NPDENTRIES - 1; pde != 0xFFFFFFFF; pde --){
+		if((pde << PDXSHIFT) >= UXSTACKTOP - PGSIZE){
+			if(flag == 1) is_stack = 0;
+			continue;
+		}
+		if(!(uvpd[pde] & PTE_P)){
+			if(flag == 1) is_stack = 0;
+			continue;
+		}
+		for(pte_t pte = NPTENTRIES - 1; pte != 0xFFFFFFFF; pte --) {
+			uint32_t p = pde * NPDENTRIES + pte;
+			if(p * PGSIZE >= UXSTACKTOP - 2 * PGSIZE){
+				if(flag == 1) is_stack = 0;
+				continue;
+			}
+			if(!(uvpt[p] & PTE_P)){
+				if(flag == 1) is_stack = 0;
+				continue;
+			}
+			if(is_stack == 1 || pde < 2){
+				duppage(envid, p);
+				flag = 1;
+			}else{
+				sduppage(envid, p);
+			}
+		}
+	}
+	
+	r = sys_page_alloc(envid, (void*)(UXSTACKTOP - PGSIZE), PTE_W | PTE_U | PTE_P);
+	if(r < 0){
+		panic("sys_page_alloc() error in fork(): %e\n", envid);
+	}
+	extern void _pgfault_upcall(void);
+	r = sys_env_set_pgfault_upcall(envid, _pgfault_upcall);
+	if(r < 0){
+		panic("sys_env_set_pgfault_upcall() error in fork(): %e\n", envid);
+	}
+	r = sys_env_set_status(envid, ENV_RUNNABLE);
+	if(r < 0){
+		panic("sys_env_set_status() error in fork(): %e\n", envid);
+	}
+	return envid;
+
+	//panic("sfork not implemented");
+	//return -E_INVAL;
 }
