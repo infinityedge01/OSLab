@@ -1,6 +1,11 @@
 
 #include "fs.h"
 
+#define CACHE_SIZE 10
+static void *block_cache[CACHE_SIZE];
+static uint32_t timestamp[CACHE_SIZE];
+static uint32_t current_time = 0;
+
 // Return the virtual address of this disk block.
 void*
 diskaddr(uint32_t blockno)
@@ -67,6 +72,34 @@ bc_pgfault(struct UTrapframe *utf)
 	// in?)
 	if (bitmap && block_is_free(blockno))
 		panic("reading free block %08x\n", blockno);
+		
+	current_time ++;
+	for(uint32_t i = 0; i < CACHE_SIZE; i ++){
+		if (addr == block_cache[i]){
+			timestamp[i] = current_time;
+			return;
+		}
+	}
+	uint32_t evict = 0;
+	if(block_cache[evict] == ROUNDDOWN(super, BLKSIZE)){
+		evict = 1;
+	}
+	for(uint32_t i = 0; i < CACHE_SIZE; i ++){
+		if(current_time - timestamp[i] > current_time - timestamp[evict] && block_cache[i] != ROUNDDOWN(super, BLKSIZE)){
+			evict = i;
+		}
+	}
+	if(block_cache[evict] != NULL && block_cache[evict] != addr){
+		if(uvpt[PGNUM(block_cache[evict])] & PTE_D){
+			flush_block(block_cache[evict]);
+		}
+		r = sys_page_unmap(thisenv->env_id, block_cache[evict]);
+		if(r < 0){
+			panic("sys_page_unmap() error: %e\n", r);
+		}
+	}
+	block_cache[evict] = addr;
+	timestamp[evict] = current_time;
 }
 
 // Flush the contents of the block containing VA out to disk if
