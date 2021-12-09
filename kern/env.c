@@ -414,6 +414,7 @@ env_create(uint8_t *binary, enum EnvType type)
 
 	// If this is the file server (type == ENV_TYPE_FS) give it I/O privileges.
 	// LAB 5: Your code here.
+	env->env_tf.tf_eflags &= ~FL_IOPL_MASK;
 	if(type == ENV_TYPE_FS){
 		env->env_tf.tf_eflags |= FL_IOPL_3;
 	}
@@ -553,9 +554,9 @@ env_run(struct Env *e)
 			curenv->env_status = ENV_RUNNABLE;
 		}
 	}
+	if(curenv != e) e->env_runs ++;
 	curenv = e;
 	e->env_status = ENV_RUNNING;
-	e->env_runs ++;
 	lcr3(PADDR(e->env_pgdir));
 	unlock_kernel();
 	env_pop_tf(&e->env_tf);

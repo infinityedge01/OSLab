@@ -74,7 +74,7 @@ duppage(envid_t envid, unsigned pn)
 	// LAB 4: Your code here.
 	void *addr = (void *)(pn * PGSIZE);
 	pte_t pte = uvpt[pn];
-	if((pte & PTE_W) || (pte & PTE_COW)){
+	if(((pte & PTE_W) || (pte & PTE_COW)) && !(pte & PTE_SHARE)){
 		r = sys_page_map(0, addr, envid, addr, PTE_COW | PTE_P | PTE_U);
 		if (r < 0){
 			panic("COW sys_page_map(%d) error in duppage() : %e\n", envid, r);
@@ -84,7 +84,11 @@ duppage(envid_t envid, unsigned pn)
 			panic("COW sys_page_map(0) error in duppage() : %e\n", r);
 		}
 	}else{
-		r = sys_page_map(0, addr, envid, addr, PTE_P | PTE_U);
+		if((pte & PTE_W) && (pte & PTE_SHARE)){
+			r = sys_page_map(0, addr, envid, addr, PTE_P | PTE_U | PTE_W | PTE_SHARE);
+		}else{
+			r = sys_page_map(0, addr, envid, addr, PTE_P | PTE_U);
+		}
 		if (r < 0){
 			panic("sys_page_map(%d) error in duppage() : %e\n", envid, r);
 		}
